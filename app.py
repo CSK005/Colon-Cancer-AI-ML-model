@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -52,11 +51,15 @@ st.text("Classification Report:")
 st.text(classification_report(y_test, y_pred_rf))
 
 # Confusion Matrix - RF
-conf_matrix_rf = confusion_matrix(y_test, y_pred_rf)
+def plot_confusion_matrix(conf_matrix):
+    import matplotlib.pyplot as plt  # Lazy import
+    fig, ax = plt.subplots()
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax)
+    st.pyplot(fig)
+
 st.subheader("Confusion Matrix - RandomForest")
-fig, ax = plt.subplots()
-sns.heatmap(conf_matrix_rf, annot=True, fmt='d', cmap='Blues', ax=ax)
-st.pyplot(fig)
+conf_matrix_rf = confusion_matrix(y_test, y_pred_rf)
+plot_confusion_matrix(conf_matrix_rf)
 
 # DNN Model
 st.subheader("Deep Neural Network (DNN)")
@@ -76,15 +79,13 @@ st.text("DNN Classification Report:")
 st.text(classification_report(y_test, y_pred_dnn))
 
 # Confusion Matrix - DNN
-conf_matrix_dnn = confusion_matrix(y_test, y_pred_dnn)
 st.subheader("Confusion Matrix - DNN")
-fig, ax = plt.subplots()
-sns.heatmap(conf_matrix_dnn, annot=True, fmt='d', cmap='Reds', ax=ax)
-st.pyplot(fig)
+conf_matrix_dnn = confusion_matrix(y_test, y_pred_dnn)
+plot_confusion_matrix(conf_matrix_dnn)
 
 # Conclusion
 st.subheader("Conclusion & Insights")
-st.markdown("""
+st.markdown(f"""
 - **RandomForest performed with an accuracy of** {accuracy_rf:.2f}
 - **DNN achieved an accuracy of** {accuracy_dnn:.2f}
 - Further improvements can be made with hyperparameter tuning and additional feature selection.
