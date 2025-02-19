@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
@@ -53,6 +52,7 @@ st.text(classification_report(y_test, y_pred_rf))
 # Confusion Matrix - RF
 def plot_confusion_matrix(conf_matrix):
     import matplotlib.pyplot as plt  # Lazy import
+    import seaborn as sns  # Lazy import
     fig, ax = plt.subplots()
     sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax)
     st.pyplot(fig)
