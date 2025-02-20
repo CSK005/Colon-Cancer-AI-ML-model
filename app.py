@@ -7,9 +7,10 @@ import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM, GRU
+from tensorflow.keras.layers import Dense
 from xgboost import XGBClassifier
 
 # Title and Introduction
@@ -51,6 +52,26 @@ def load_data(uploaded_files):
 df_train = load_data(uploaded_files)
 df_test = load_data(uploaded_test_files)
 
+def preprocess_data(df):
+    # Label Encoding categorical columns
+    encode_cols = ["Func.refGene", "ExonicFunc.refGene", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_pred",
+                   "SIFT_pred", "MutationTaster_pred", "MutationAssessor_pred", "CLNSIG"]
+    label_encoders = {}
+    for col in encode_cols:
+        if col in df.columns:
+            label_encoders[col] = LabelEncoder()
+            df[col] = label_encoders[col].fit_transform(df[col].astype(str))
+    
+    # Normalize numerical columns
+    scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
+    scaler = MinMaxScaler()
+    df[scale_cols] = scaler.fit_transform(df[scale_cols])
+
+    df = df.select_dtypes(include=[np.number]).fillna(0)
+    X = df.drop(columns=['Func.refGene'])
+    y = df['Func.refGene']
+    return X, y
+
 if df_train is not None and df_test is not None:
     st.subheader("Training Dataset Overview")
     st.write(df_train.head())
@@ -69,12 +90,6 @@ if df_train is not None and df_test is not None:
         # Preprocessing
         st.subheader("Data Preprocessing")
         st.write("Feature selection and encoding applied.")
-
-        def preprocess_data(df):
-            df = df.select_dtypes(include=[np.number]).fillna(0)
-            X = df.drop(columns=['Func.refGene'])
-            y = df['Func.refGene']
-            return X, y
 
         X_train, y_train = preprocess_data(df_train)
         X_test, y_test = preprocess_data(df_test)
@@ -103,7 +118,7 @@ if df_train is not None and df_test is not None:
         # Feature Importance - RF
         st.subheader("Feature Importance - RandomForest")
         feature_importances = rf_clf.feature_importances_
-        features = df_train.drop(columns=['Func.refGene']).columns
+        features = X_train.columns
         importance_df = pd.DataFrame({'Feature': features, 'Importance': feature_importances})
         importance_df = importance_df.sort_values(by='Importance', ascending=False)
         fig, ax = plt.subplots()
