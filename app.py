@@ -69,7 +69,7 @@ def preprocess_data(df):
     scaler = MinMaxScaler()
     for col in scale_cols:
         if col in df.columns:
-            df[col] = scaler.fit_transform(df[[col]])
+            df[[col]] = scaler.fit_transform(df[[col]])
         else:
             st.warning(f"Column {col} not found in dataset and will be skipped.")
 
