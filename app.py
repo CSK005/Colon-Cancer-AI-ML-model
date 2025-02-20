@@ -24,112 +24,102 @@ This application provides insights into colon cancer prediction using exome sequ
 uploaded_files = st.file_uploader("Upload your CSV files for training", type=["csv"], accept_multiple_files=True)
 uploaded_test_files = st.file_uploader("Upload your CSV files for testing", type=["csv"], accept_multiple_files=True)
 
-# Required Columns
-required_columns = [
-    "Chr", "Start", "End", "Ref", "Alt", "Func.refGene", "ExonicFunc.refGene", 
-    "CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"
-]
-
-# Function to load data
-def load_data(files):
-    if files:
-        try:
-            dfs = [pd.read_csv(file) for file in files]
-            df = pd.concat(dfs, ignore_index=True)
-            return df
-        except Exception as e:
-            st.error(f"Error loading file: {e}")
-            return None
-    return None
-
-df_train = load_data(uploaded_files)
-df_test = load_data(uploaded_test_files)
-
-# Preprocessing Function
-def preprocess_data(df):
-    if df is None:
+# Function to load and preprocess data
+def preprocess_data(files):
+    if not files:
         return None, None
     
-    # Check for missing columns
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        st.error(f"Missing columns in dataset: {missing_cols}")
+    try:
+        dfs = [pd.read_csv(file) for file in files]
+        df = pd.concat(dfs, ignore_index=True)
+    except Exception as e:
+        st.error(f"Error loading file: {e}")
         return None, None
+    
+    # Replace '.' with NaN and handle missing values
+    df.replace(".", np.nan, inplace=True)
+    df.fillna(0, inplace=True)
+    
+    # Columns to encode
+    encode_cols = ["Func.refGene", "ExonicFunc.refGene", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_pred",
+                   "SIFT_pred", "MutationTaster_pred", "MutationAssessor_pred", "CLNSIG"]
     
     # Label Encoding categorical columns
-    categorical_cols = ["Func.refGene", "ExonicFunc.refGene"]
     label_encoders = {}
-    for col in categorical_cols:
-        df[col] = df[col].astype(str)  # Convert to string
-        label_encoders[col] = LabelEncoder()
-        df[col] = label_encoders[col].fit_transform(df[col])
+    for col in encode_cols:
+        if col in df.columns:
+            label_encoders[col] = LabelEncoder()
+            df[col] = label_encoders[col].fit_transform(df[col].astype(str))
     
-    # Convert numerical columns
-    numerical_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
-    for col in numerical_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric
-    df.fillna(0, inplace=True)  # Fill NaN values with 0
+    # Normalize numerical columns
+    scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
     
-    # Apply MinMax Scaling
+    for col in scale_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)  # Convert to numeric, fill NaN with 0
+    
     scaler = MinMaxScaler()
-    df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+    df[scale_cols] = scaler.fit_transform(df[scale_cols])
     
-    X = df.drop(columns=['Func.refGene'])
-    y = df['Func.refGene']
-    return X, y
+    if 'Func.refGene' in df.columns:
+        X = df.drop(columns=['Func.refGene'])
+        y = df['Func.refGene']
+        return X, y
+    else:
+        st.error("Error: 'Func.refGene' column missing, unable to continue.")
+        return None, None
 
-if df_train is not None and df_test is not None:
-    X_train, y_train = preprocess_data(df_train)
-    X_test, y_test = preprocess_data(df_test)
+df_train_X, df_train_y = preprocess_data(uploaded_files)
+df_test_X, df_test_y = preprocess_data(uploaded_test_files)
+
+if df_train_X is not None and df_test_X is not None:
+    st.subheader("Training Dataset Overview")
+    st.write(df_train_X.head())
     
-    if X_train is not None and X_test is not None:
-        st.subheader("Training Dataset Overview")
-        st.write(df_train.head())
-        
-        st.subheader("Testing Dataset Overview")
-        st.write(df_test.head())
+    st.subheader("Testing Dataset Overview")
+    st.write(df_test_X.head())
 
-        # RandomForest Model
-        st.subheader("RandomForest Classifier")
-        rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
-        rf_clf.fit(X_train, y_train)
-        y_pred_rf = rf_clf.predict(X_test)
-        accuracy_rf = accuracy_score(y_test, y_pred_rf)
-        st.write(f"RandomForest Accuracy: {accuracy_rf:.2f}")
-        st.text(classification_report(y_test, y_pred_rf))
-        
-        # XGBoost Model
-        st.subheader("XGBoost Classifier")
-        xgb_clf = XGBClassifier(n_estimators=100, random_state=42)
-        xgb_clf.fit(X_train, y_train)
-        y_pred_xgb = xgb_clf.predict(X_test)
-        accuracy_xgb = accuracy_score(y_test, y_pred_xgb)
-        st.write(f"XGBoost Accuracy: {accuracy_xgb:.2f}")
-        st.text(classification_report(y_test, y_pred_xgb))
-        
-        # DNN Model (Cached for Performance)
-        @st.cache_resource
-        def train_dnn(X_train, y_train):
-            model = Sequential([
-                Dense(128, input_dim=X_train.shape[1], activation='relu'),
-                Dense(64, activation='relu'),
-                Dense(32, activation='relu'),
-                Dense(len(np.unique(y_train)), activation='softmax')
-            ])
-            model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-            model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
-            return model
-        
-        st.subheader("Deep Neural Network (DNN)")
-        model = train_dnn(X_train, y_train)
-        _, accuracy_dnn = model.evaluate(X_test, y_test, verbose=0)
-        st.write(f"DNN Accuracy: {accuracy_dnn:.2f}")
-        
-        # Conclusion
-        st.subheader("Conclusion & Insights")
-        st.markdown(f"""
-        - **RandomForest Accuracy:** {accuracy_rf:.2f}
-        - **XGBoost Accuracy:** {accuracy_xgb:.2f}
-        - **DNN Accuracy:** {accuracy_dnn:.2f}
-        - Further improvements can be made with hyperparameter tuning and additional feature selection.
-        """)
+    # RandomForest Model
+    st.subheader("RandomForest Classifier")
+    rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf_clf.fit(df_train_X, df_train_y)
+    y_pred_rf = rf_clf.predict(df_test_X)
+    accuracy_rf = accuracy_score(df_test_y, y_pred_rf)
+    st.write(f"RandomForest Accuracy: {accuracy_rf:.2f}")
+    st.text(classification_report(df_test_y, y_pred_rf))
+    
+    # XGBoost Model
+    st.subheader("XGBoost Classifier")
+    xgb_clf = XGBClassifier(n_estimators=100, random_state=42)
+    xgb_clf.fit(df_train_X, df_train_y)
+    y_pred_xgb = xgb_clf.predict(df_test_X)
+    accuracy_xgb = accuracy_score(df_test_y, y_pred_xgb)
+    st.write(f"XGBoost Accuracy: {accuracy_xgb:.2f}")
+    st.text(classification_report(df_test_y, y_pred_xgb))
+    
+    # DNN Model (Cached for Performance)
+    @st.cache_resource
+    def train_dnn(X_train, y_train):
+        model = Sequential([
+            Dense(128, input_dim=X_train.shape[1], activation='relu'),
+            Dense(64, activation='relu'),
+            Dense(32, activation='relu'),
+            Dense(len(np.unique(y_train)), activation='softmax')
+        ])
+        model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+        return model
+    
+    st.subheader("Deep Neural Network (DNN)")
+    model = train_dnn(df_train_X, df_train_y)
+    _, accuracy_dnn = model.evaluate(df_test_X, df_test_y, verbose=0)
+    st.write(f"DNN Accuracy: {accuracy_dnn:.2f}")
+    
+    # Conclusion
+    st.subheader("Conclusion & Insights")
+    st.markdown(f"""
+    - **RandomForest Accuracy:** {accuracy_rf:.2f}
+    - **XGBoost Accuracy:** {accuracy_xgb:.2f}
+    - **DNN Accuracy:** {accuracy_dnn:.2f}
+    - Further improvements can be made with hyperparameter tuning and additional feature selection.
+    """)
