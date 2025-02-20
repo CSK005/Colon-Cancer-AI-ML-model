@@ -4,12 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, LSTM, GRU
+from xgboost import XGBClassifier
 
 # Title and Introduction
 st.title("Colon Cancer Decision Support System (DSS)")
@@ -21,6 +22,18 @@ This application provides insights into colon cancer prediction using exome sequ
 # File Uploaders for CSVs
 uploaded_files = st.file_uploader("Upload your CSV files for training", type=["csv"], accept_multiple_files=True)
 uploaded_test_files = st.file_uploader("Upload your CSV files for testing", type=["csv"], accept_multiple_files=True)
+
+# Define required columns
+required_columns = [
+    "Chr", "Start", "End", "Ref", "Alt", "Func.refGene", "ExonicFunc.refGene", 
+    "AAChange.refGene", "CADD", "CADD_Phred", "Polyphen2_HDIV_score", 
+    "Polyphen2_HDIV_rankscore", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score", 
+    "Polyphen2_HVAR_rankscore", "Polyphen2_HVAR_pred", "SIFT_pred", 
+    "MutationTaster_score", "MutationTaster_converted_rankscore", 
+    "MutationTaster_pred", "MutationAssessor_score", "MutationAssessor_rankscore", 
+    "MutationAssessor_pred", "SIFT_score", "SIFT_converted_rankscore", "SIFT_pred", 
+    "SIFT4G_score", "SIFT4G_converted_rankscore", "SIFT4G_pred", "CLNSIG", "AF", "AF_popmax"
+]
 
 def load_data(uploaded_files):
     if uploaded_files:
@@ -45,9 +58,13 @@ if df_train is not None and df_test is not None:
     st.subheader("Testing Dataset Overview")
     st.write(df_test.head())
 
-    # Ensure required column exists
-    if 'Gene.refGeneWithVer' not in df_train.columns or 'Gene.refGeneWithVer' not in df_test.columns:
-        st.error("Error: The required column 'Gene.refGeneWithVer' is missing from one of the datasets.")
+    # Ensure required columns exist
+    missing_columns_train = [col for col in required_columns if col not in df_train.columns]
+    missing_columns_test = [col for col in required_columns if col not in df_test.columns]
+
+    if missing_columns_train or missing_columns_test:
+        st.error(f"Error: The following required columns are missing in the training dataset: {missing_columns_train}")
+        st.error(f"Error: The following required columns are missing in the testing dataset: {missing_columns_test}")
     else:
         # Preprocessing
         st.subheader("Data Preprocessing")
@@ -55,8 +72,8 @@ if df_train is not None and df_test is not None:
 
         def preprocess_data(df):
             df = df.select_dtypes(include=[np.number]).fillna(0)
-            X = df.drop(columns=['Gene.refGeneWithVer'])
-            y = df['Gene.refGeneWithVer']
+            X = df.drop(columns=['Func.refGene'])
+            y = df['Func.refGene']
             return X, y
 
         X_train, y_train = preprocess_data(df_train)
@@ -86,13 +103,27 @@ if df_train is not None and df_test is not None:
         # Feature Importance - RF
         st.subheader("Feature Importance - RandomForest")
         feature_importances = rf_clf.feature_importances_
-        features = df_train.drop(columns=['Gene.refGeneWithVer']).columns
+        features = df_train.drop(columns=['Func.refGene']).columns
         importance_df = pd.DataFrame({'Feature': features, 'Importance': feature_importances})
         importance_df = importance_df.sort_values(by='Importance', ascending=False)
         fig, ax = plt.subplots()
         sns.barplot(x='Importance', y='Feature', data=importance_df, ax=ax)
         plt.title("Feature Importance - RandomForest")
         st.pyplot(fig)
+
+        # XGBoost Model
+        st.subheader("XGBoost Classifier")
+        xgb_clf = XGBClassifier(n_estimators=100, random_state=42)
+        xgb_clf.fit(X_train, y_train)
+        y_pred_xgb = xgb_clf.predict(X_test)
+        accuracy_xgb = accuracy_score(y_test, y_pred_xgb)
+        st.write(f"XGBoost Accuracy: {accuracy_xgb:.2f}")
+        st.text("Classification Report:")
+        st.text(classification_report(y_test, y_pred_xgb))
+
+        st.subheader("Confusion Matrix - XGBoost")
+        conf_matrix_xgb = confusion_matrix(y_test, y_pred_xgb)
+        plot_confusion_matrix(conf_matrix_xgb, "XGBoost Confusion Matrix")
 
         # DNN Model (Cached for Performance)
         @st.cache_resource
@@ -116,7 +147,6 @@ if df_train is not None and df_test is not None:
         st.text("DNN Classification Report:")
         st.text(classification_report(y_test, y_pred_dnn))
 
-        # Confusion Matrix - DNN
         st.subheader("Confusion Matrix - DNN")
         conf_matrix_dnn = confusion_matrix(y_test, y_pred_dnn)
         plot_confusion_matrix(conf_matrix_dnn, "DNN Confusion Matrix")
@@ -125,6 +155,7 @@ if df_train is not None and df_test is not None:
         st.subheader("Conclusion & Insights")
         st.markdown(f"""
         - **RandomForest performed with an accuracy of** {accuracy_rf:.2f}
+        - **XGBoost achieved an accuracy of** {accuracy_xgb:.2f}
         - **DNN achieved an accuracy of** {accuracy_dnn:.2f}
         - Further improvements can be made with hyperparameter tuning and additional feature selection.
         """)
