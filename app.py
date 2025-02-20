@@ -61,11 +61,17 @@ def preprocess_data(df):
         if col in df.columns:
             label_encoders[col] = LabelEncoder()
             df[col] = label_encoders[col].fit_transform(df[col].astype(str))
-    
+        else:
+            st.warning(f"Column {col} not found in dataset and will be skipped.")
+
     # Normalize numerical columns
     scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
     scaler = MinMaxScaler()
-    df[scale_cols] = scaler.fit_transform(df[scale_cols])
+    for col in scale_cols:
+        if col in df.columns:
+            df[col] = scaler.fit_transform(df[[col]])
+        else:
+            st.warning(f"Column {col} not found in dataset and will be skipped.")
 
     df = df.select_dtypes(include=[np.number]).fillna(0)
     X = df.drop(columns=['Func.refGene'])
