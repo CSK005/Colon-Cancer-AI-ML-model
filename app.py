@@ -50,6 +50,8 @@ def preprocess_data(files):
         if col in df.columns:
             label_encoders[col] = LabelEncoder()
             df[col] = label_encoders[col].fit_transform(df[col].astype(str))
+        else:
+            st.warning(f"Column {col} not found in dataset and will be skipped.")
     
     # Normalize numerical columns
     scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
@@ -79,41 +81,50 @@ if df_train_X is not None and df_test_X is not None:
     st.subheader("Testing Dataset Overview")
     st.write(df_test_X.head())
 
-    # RandomForest Model
-    st.subheader("RandomForest Classifier")
-    rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf_clf.fit(df_train_X, df_train_y)
-    y_pred_rf = rf_clf.predict(df_test_X)
-    accuracy_rf = accuracy_score(df_test_y, y_pred_rf)
-    st.write(f"RandomForest Accuracy: {accuracy_rf:.2f}")
-    st.text(classification_report(df_test_y, y_pred_rf))
+    try:
+        # RandomForest Model
+        st.subheader("RandomForest Classifier")
+        rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
+        rf_clf.fit(df_train_X, df_train_y)
+        y_pred_rf = rf_clf.predict(df_test_X)
+        accuracy_rf = accuracy_score(df_test_y, y_pred_rf)
+        st.write(f"RandomForest Accuracy: {accuracy_rf:.2f}")
+        st.text(classification_report(df_test_y, y_pred_rf))
+    except Exception as e:
+        st.error(f"Error training RandomForest model: {e}")
     
-    # XGBoost Model
-    st.subheader("XGBoost Classifier")
-    xgb_clf = XGBClassifier(n_estimators=100, random_state=42)
-    xgb_clf.fit(df_train_X, df_train_y)
-    y_pred_xgb = xgb_clf.predict(df_test_X)
-    accuracy_xgb = accuracy_score(df_test_y, y_pred_xgb)
-    st.write(f"XGBoost Accuracy: {accuracy_xgb:.2f}")
-    st.text(classification_report(df_test_y, y_pred_xgb))
+    try:
+        # XGBoost Model
+        st.subheader("XGBoost Classifier")
+        xgb_clf = XGBClassifier(n_estimators=100, random_state=42)
+        xgb_clf.fit(df_train_X, df_train_y)
+        y_pred_xgb = xgb_clf.predict(df_test_X)
+        accuracy_xgb = accuracy_score(df_test_y, y_pred_xgb)
+        st.write(f"XGBoost Accuracy: {accuracy_xgb:.2f}")
+        st.text(classification_report(df_test_y, y_pred_xgb))
+    except Exception as e:
+        st.error(f"Error training XGBoost model: {e}")
     
-    # DNN Model (Cached for Performance)
-    @st.cache_resource
-    def train_dnn(X_train, y_train):
-        model = Sequential([
-            Dense(128, input_dim=X_train.shape[1], activation='relu'),
-            Dense(64, activation='relu'),
-            Dense(32, activation='relu'),
-            Dense(len(np.unique(y_train)), activation='softmax')
-        ])
-        model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-        model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
-        return model
+    try:
+        # DNN Model (Cached for Performance)
+        @st.cache_resource
+        def train_dnn(X_train, y_train):
+            model = Sequential([
+                Dense(128, input_dim=X_train.shape[1], activation='relu'),
+                Dense(64, activation='relu'),
+                Dense(32, activation='relu'),
+                Dense(len(np.unique(y_train)), activation='softmax')
+            ])
+            model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+            model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+            return model
     
-    st.subheader("Deep Neural Network (DNN)")
-    model = train_dnn(df_train_X, df_train_y)
-    _, accuracy_dnn = model.evaluate(df_test_X, df_test_y, verbose=0)
-    st.write(f"DNN Accuracy: {accuracy_dnn:.2f}")
+        st.subheader("Deep Neural Network (DNN)")
+        model = train_dnn(df_train_X, df_train_y)
+        _, accuracy_dnn = model.evaluate(df_test_X, df_test_y, verbose=0)
+        st.write(f"DNN Accuracy: {accuracy_dnn:.2f}")
+    except Exception as e:
+        st.error(f"Error training DNN model: {e}")
     
     # Conclusion
     st.subheader("Conclusion & Insights")
