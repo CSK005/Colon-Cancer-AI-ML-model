@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -16,29 +18,36 @@ st.markdown("""
 This application provides insights into colon cancer prediction using exome sequencing data.
 """)
 
-# File Uploader for CSV
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+# File Uploaders for CSVs
+uploaded_files = st.file_uploader("Upload your CSV files for training", type=["csv"], accept_multiple_files=True)
+uploaded_test_files = st.file_uploader("Upload your CSV files for testing", type=["csv"], accept_multiple_files=True)
 
-def load_data(uploaded_file):
-    if uploaded_file is not None:
+def load_data(uploaded_files):
+    if uploaded_files:
         try:
-            df = pd.read_csv(uploaded_file)
+            dfs = [pd.read_csv(file) for file in uploaded_files]
+            df = pd.concat(dfs, ignore_index=True)
             return df
         except Exception as e:
             st.error(f"Error loading file: {e}")
             return None
     else:
-        st.warning("Please upload a CSV file to proceed.")
+        st.warning("Please upload CSV files to proceed.")
         return None
 
-df = load_data(uploaded_file)
-if df is not None:
-    st.subheader("Dataset Overview")
-    st.write(df.head())
+df_train = load_data(uploaded_files)
+df_test = load_data(uploaded_test_files)
+
+if df_train is not None and df_test is not None:
+    st.subheader("Training Dataset Overview")
+    st.write(df_train.head())
+    
+    st.subheader("Testing Dataset Overview")
+    st.write(df_test.head())
 
     # Ensure required column exists
-    if 'Gene.refGeneWithVer' not in df.columns:
-        st.error("Error: The required column 'Gene.refGeneWithVer' is missing from the dataset.")
+    if 'Gene.refGeneWithVer' not in df_train.columns or 'Gene.refGeneWithVer' not in df_test.columns:
+        st.error("Error: The required column 'Gene.refGeneWithVer' is missing from one of the datasets.")
     else:
         # Preprocessing
         st.subheader("Data Preprocessing")
@@ -48,9 +57,10 @@ if df is not None:
             df = df.select_dtypes(include=[np.number]).fillna(0)
             X = df.drop(columns=['Gene.refGeneWithVer'])
             y = df['Gene.refGeneWithVer']
-            return train_test_split(X, y, test_size=0.2, random_state=42)
+            return X, y
 
-        X_train, X_test, y_train, y_test = preprocess_data(df)
+        X_train, y_train = preprocess_data(df_train)
+        X_test, y_test = preprocess_data(df_test)
 
         # RandomForest Model
         st.subheader("RandomForest Classifier")
@@ -63,16 +73,26 @@ if df is not None:
         st.text(classification_report(y_test, y_pred_rf))
 
         # Confusion Matrix - RF
-        def plot_confusion_matrix(conf_matrix):
-            import matplotlib.pyplot as plt  # Lazy import
-            import seaborn as sns  # Lazy import
+        def plot_confusion_matrix(conf_matrix, title):
             fig, ax = plt.subplots()
             sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', ax=ax)
+            plt.title(title)
             st.pyplot(fig)
 
         st.subheader("Confusion Matrix - RandomForest")
         conf_matrix_rf = confusion_matrix(y_test, y_pred_rf)
-        plot_confusion_matrix(conf_matrix_rf)
+        plot_confusion_matrix(conf_matrix_rf, "RandomForest Confusion Matrix")
+
+        # Feature Importance - RF
+        st.subheader("Feature Importance - RandomForest")
+        feature_importances = rf_clf.feature_importances_
+        features = df_train.drop(columns=['Gene.refGeneWithVer']).columns
+        importance_df = pd.DataFrame({'Feature': features, 'Importance': feature_importances})
+        importance_df = importance_df.sort_values(by='Importance', ascending=False)
+        fig, ax = plt.subplots()
+        sns.barplot(x='Importance', y='Feature', data=importance_df, ax=ax)
+        plt.title("Feature Importance - RandomForest")
+        st.pyplot(fig)
 
         # DNN Model (Cached for Performance)
         @st.cache_resource
@@ -99,7 +119,7 @@ if df is not None:
         # Confusion Matrix - DNN
         st.subheader("Confusion Matrix - DNN")
         conf_matrix_dnn = confusion_matrix(y_test, y_pred_dnn)
-        plot_confusion_matrix(conf_matrix_dnn)
+        plot_confusion_matrix(conf_matrix_dnn, "DNN Confusion Matrix")
 
         # Conclusion
         st.subheader("Conclusion & Insights")
