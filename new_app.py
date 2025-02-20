@@ -26,7 +26,7 @@ cancer_files = st.file_uploader("Upload your CSV files for colon cancer exome da
 uploaded_test_files = st.file_uploader("Upload your CSV files for testing", type=["csv"], accept_multiple_files=True)
 
 # Function to load and preprocess data
-def preprocess_data(files, label):
+def preprocess_data(files, label=None):
     if not files:
         return None, None
     
@@ -73,10 +73,11 @@ def preprocess_data(files, label):
     scaler = MinMaxScaler()
     df[scale_cols] = scaler.fit_transform(df[scale_cols])
     
-    df['Label'] = label
+    if label is not None:
+        df['Label'] = label
     
-    X = df.drop(columns=['Label'])
-    y = df['Label']
+    X = df.drop(columns=['Label']) if 'Label' in df.columns else df
+    y = df['Label'] if 'Label' in df.columns else None
     return X, y
 
 # Preprocess normal and cancer datasets
@@ -89,7 +90,7 @@ if df_normal_X is not None and df_cancer_X is not None:
     df_train_y = pd.concat([df_normal_y, df_cancer_y], ignore_index=True)
 
 # Preprocess test datasets
-df_test_X, df_test_y = preprocess_data(uploaded_test_files, label=None)
+df_test_X, df_test_y = preprocess_data(uploaded_test_files)
 
 if df_train_X is not None and df_test_X is not None:
     st.subheader("Training Dataset Overview")
