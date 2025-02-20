@@ -45,7 +45,8 @@ def preprocess_data(files):
                                    'chr6': 6, 'chr7': 7, 'chr8': 8, 'chr9': 9, 'chr10': 10,
                                    'chr11': 11, 'chr12': 12, 'chr13': 13, 'chr14': 14, 'chr15': 15,
                                    'chr16': 16, 'chr17': 17, 'chr18': 18, 'chr19': 19, 'chr20': 20,
-                                   'chr21': 21, 'chr22': 22, 'chrX': 23, 'chrY': 24})
+                                   'chr21': 21, 'chr22': 22, 'chrX': 23, 'chrY': 24,
+                                   'chr7_gl000195_random': 25})  # Handle other random chromosomes similarly
     
     # Columns to encode
     encode_cols = ["Func.refGene", "ExonicFunc.refGene", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_pred",
@@ -60,12 +61,13 @@ def preprocess_data(files):
         else:
             st.warning(f"Column {col} not found in dataset and will be skipped.")
     
+    # Convert object columns to numeric
+    object_cols = df.select_dtypes(include=['object']).columns
+    for col in object_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    
     # Normalize numerical columns
     scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
-    
-    for col in scale_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)  # Convert to numeric, fill NaN with 0
     
     scaler = MinMaxScaler()
     df[scale_cols] = scaler.fit_transform(df[scale_cols])
