@@ -76,6 +76,11 @@ def preprocess_data(files):
     if 'Func.refGene' in df.columns:
         X = df.drop(columns=['Func.refGene'])
         y = df['Func.refGene']
+        
+        # Ensure y is numeric
+        le = LabelEncoder()
+        y = le.fit_transform(y)
+        
         return X, y
     else:
         st.error("Error: 'Func.refGene' column missing.")
@@ -89,8 +94,10 @@ if df_train_X is not None and df_test_X is not None:
     st.write(df_train_X.head())
 
     # Verify X and y before applying SMOTE
-    if df_train_X.isnull().sum().sum() > 0 or df_train_y.isnull().sum() > 0:
+    if df_train_X.isnull().sum().sum() > 0 or pd.isnull(df_train_y).sum() > 0:
         st.error("Error: Missing values detected in training data. Ensure proper preprocessing.")
+    elif len(np.unique(df_train_y)) < 2:
+        st.error("Error: SMOTE requires at least two classes in the dataset.")
     else:
         # Handle class imbalance using SMOTE
         smote = SMOTE(random_state=42)
@@ -133,26 +140,11 @@ if df_train_X is not None and df_test_X is not None:
         sns.barplot(data=rf_feature_importances[:10], x='Importance', y='Feature', ax=ax)
         st.pyplot(fig)
 
-        st.subheader("Feature Importance - XGBoost")
-        xgb_feature_importances = pd.DataFrame({'Feature': df_train_X.columns, 'Importance': xgb_clf.feature_importances_})
-        xgb_feature_importances = xgb_feature_importances.sort_values(by='Importance', ascending=False)
-        fig, ax = plt.subplots()
-        sns.barplot(data=xgb_feature_importances[:10], x='Importance', y='Feature', ax=ax)
-        st.pyplot(fig)
-
-        # Mutation Distribution Plot
-        st.subheader("Mutation Distribution Across Samples")
-        fig, ax = plt.subplots(figsize=(12, 6))
-        sns.histplot(df_train_y, kde=True, bins=20, ax=ax)
-        plt.xlabel("Mutation Categories")
-        plt.ylabel("Frequency")
-        st.pyplot(fig)
-
         # Conclusion
         st.subheader("Conclusion & Insights")
         st.markdown(f"""
         - **RandomForest Accuracy:** {accuracy_rf:.2f}
         - **XGBoost Accuracy:** {accuracy_xgb:.2f}
-        - Feature importance analysis shows that {rf_feature_importances.iloc[0, 0]} and {rf_feature_importances.iloc[1, 0]} are key predictors.
-        - Future work: Add **mutation burden analysis, MSI status**, and other relevant biological predictors.
+        - Future work: Include **mutation burden analysis, MSI status**, and other relevant biological predictors.
         """)
+
