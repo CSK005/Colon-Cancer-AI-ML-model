@@ -30,7 +30,10 @@ def preprocess_data(files):
         return None, None
 
     df.replace(".", np.nan, inplace=True)
-    df.fillna(df.median(), inplace=True)  # Use median for missing values
+    
+    # Only fill numeric columns with the median
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
 
     # Chromosome Mapping
     df['Chr'] = df['Chr'].map({
