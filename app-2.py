@@ -51,11 +51,14 @@ def preprocess_data(files):
     }
     
     for col, mapping in ordered_mappings.items():
-        if col in df.columns:
+        if (col in df.columns):
             df[col] = df[col].map(mapping).fillna(0)
     
     # Normalize Selected Features
-    scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score", "MutationAssessor_score", "AF", "AF_popmax"]
+    scale_cols = [
+        "CADD", "CADD_Phred", "MutationTaster_score", 
+        "MutationAssessor_score", "AF", "AF_popmax"
+    ]
     scaler = MinMaxScaler()
     df[scale_cols] = scaler.fit_transform(df[scale_cols])
     
