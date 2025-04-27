@@ -14,7 +14,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
 # Title and Introduction
-st.title("Colon Cancer Decision Support System (DSS)")
+st.title("Colon Cancer Classifier Models)")
 st.markdown("""
 ### Early Detection and Prediction using Machine Learning & Deep Learning
 This application provides insights into colon cancer prediction using exome sequencing data.
