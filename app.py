@@ -16,7 +16,7 @@ from tensorflow.keras.layers import Dense
 # Title and Introduction
 st.title("Colon Cancer Classifier Models")
 st.markdown("""
-### Early Detection and Prediction using Machine Learning & Deep Learning  
+### Early Detection and Prediction using Machine Learning & Deep Learning
 This application provides insights into colon cancer prediction using exome sequencing data.
 """)
 
@@ -51,14 +51,14 @@ uploaded_test_files = st.file_uploader("Upload your CSV files for testing", type
 def preprocess_data(files):
     if not files:
         return None, None
-    
+
     try:
         dfs = [pd.read_csv(file) for file in files]
         df = pd.concat(dfs, ignore_index=True)
     except Exception as e:
         st.error(f"Error loading files: {e}")
         return None, None
-    
+
     # Replace '.' with NaN and fill missing values
     df.replace(".", np.nan, inplace=True)
     df.fillna(0, inplace=True)
@@ -71,7 +71,7 @@ def preprocess_data(files):
     # Columns to encode
     encode_cols = ["Func.refGene", "ExonicFunc.refGene", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_pred",
                    "SIFT_pred", "MutationTaster_pred", "MutationAssessor_pred", "CLNSIG"]
-    
+
     label_encoders = {}
     for col in encode_cols:
         if col in df.columns:
@@ -229,10 +229,8 @@ if df_train_X is not None and df_test_X is not None:
                      acc_dnn if 'acc_dnn' in locals() else None]
     })
     st.table(summary_df)
-else:
-    st.info("Please upload both training and testing CSV files to proceed.")
 
-# About Us section at the bottom
+# About Us section at the bottom - This will always display
 st.markdown("---")
 st.subheader("About Us")
 st.write("""
@@ -245,3 +243,6 @@ st.write("- CHANDRASHEKAR K")
 st.write("- Dr. VIDYA NIRANJAN")
 st.write("- ANAGHA S SETLUR")
 st.write("(Department of Biotechnology, RV College of Engineering)")
+
+if uploaded_files is None or uploaded_test_files is None:
+    st.info("Please upload both training and testing CSV files to proceed.")
