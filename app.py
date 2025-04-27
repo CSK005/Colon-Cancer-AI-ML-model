@@ -231,3 +231,17 @@ if df_train_X is not None and df_test_X is not None:
     st.table(summary_df)
 else:
     st.info("Please upload both training and testing CSV files to proceed.")
+
+# About Us section at the bottom
+st.markdown("---")
+st.subheader("About Us")
+st.write("""
+This Colon Cancer classification model was developed to provide insights into colon cancer prediction using exome sequencing data, 
+aiding in personalized treatment plans and early colon cancer diagnosis.
+""")
+st.write("For model source code, click the link: [GitHub Repository](https://github.com/CSK005/Colon-Cancer-AI-ML-model/blob/main/app.py)")
+st.write("Developed by:")
+st.write("- CHANDRASHEKAR K")
+st.write("- Dr. VIDYA NIRANJAN")
+st.write("- ANAGHA S SETLUR")
+st.write("(Department of Biotechnology, RV College of Engineering)")
