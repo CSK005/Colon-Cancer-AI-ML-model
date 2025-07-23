@@ -15,7 +15,7 @@ from tensorflow.keras.layers import Dense
 import io
 
 st.set_page_config(page_title="Colon Cancer Classifier", layout="wide")
-st.title("Colon Cancer Classifier Web Application")
+st.title("Colon Cancer Classifiers")
 st.markdown("""
 This application predicts the functional impact of exome variants related to colorectal cancer using three machine learning models:
 - Random Forest (RF)
@@ -161,9 +161,9 @@ if train_files and test_files:
 st.markdown("---")
 st.markdown("""
 #### About the Authors
-- **Chandrashekar K**, Research Intern
+- **Chandrashekar K**, Research Scholar & Developer
 - **Dr. Vidya Niranjan**, Professor & Guide
-- **Anagha S Setlur**, Co-developer & Author
+- **Anagha S Setlur**, Research Scholar & Co-developer 
 
 **Affiliation:** Department of Biotechnology, RV College of Engineering, Bangalore
 
