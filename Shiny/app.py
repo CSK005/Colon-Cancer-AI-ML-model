@@ -21,23 +21,22 @@ app_ui = ui.page_fluid(
     ui.p("Early Detection and Prediction using Machine Learning & Deep Learning"),
 
     ui.layout_sidebar(
-        ui.panel_sidebar(
+        ui.sidebar(
             ui.input_file("train_file", "Upload Training CSVs", multiple=True, accept=".csv"),
             ui.input_file("test_file", "Upload Testing CSVs", multiple=True, accept=".csv"),
             ui.input_select("feature_select", "Select feature to visualize", choices=[]),
             ui.input_action_button("run_models", "Run Models"),
         ),
-        ui.panel_main(
-            ui.output_table("train_preview"),
-            ui.output_table("test_preview"),
-            ui.output_plot("feature_plot"),
-            ui.output_text("rf_acc"),
-            ui.output_plot("rf_cm"),
-            ui.output_text("xgb_acc"),
-            ui.output_plot("xgb_cm"),
-            ui.output_text("dnn_acc"),
-            ui.output_plot("dnn_cm"),
-        )
+        # Main content area (no panel_main needed)
+        ui.output_table("train_preview"),
+        ui.output_table("test_preview"),
+        ui.output_plot("feature_plot"),
+        ui.output_text("rf_acc"),
+        ui.output_plot("rf_cm"),
+        ui.output_text("xgb_acc"),
+        ui.output_plot("xgb_cm"),
+        ui.output_text("dnn_acc"),
+        ui.output_plot("dnn_cm"),
     ),
 
     ui.hr(),
@@ -115,6 +114,10 @@ def server(input, output, session):
         if X_train is not None and X_test is not None:
             train_data.set((X_train, y_train))
             test_data.set((X_test, y_test))
+            
+            # Update feature choices for dropdown
+            feature_choices = list(X_train.columns)
+            ui.update_select("feature_select", choices=feature_choices)
 
     # Preview Tables
     @output
