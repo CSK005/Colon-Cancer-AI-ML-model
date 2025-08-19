@@ -1,4 +1,4 @@
-# app.py - Shiny for Python: Colon Cancer Classifier (Fixed)
+# app.py - Shiny for Python: Colon Cancer Classifier (Alternative with HTML tables)
 
 from shiny import App, render, ui, reactive
 import pandas as pd
@@ -38,10 +38,10 @@ app_ui = ui.page_fluid(
         # Main content area
         ui.div(
             ui.h4("Training Data Preview"),
-            ui.output_table("train_preview"),
+            ui.output_ui("train_preview"),
             ui.br(),
             ui.h4("Testing Data Preview"), 
-            ui.output_table("test_preview"),
+            ui.output_ui("test_preview"),
             ui.br(),
             ui.h4("Feature Distribution"),
             ui.output_plot("feature_plot"),
@@ -67,6 +67,35 @@ app_ui = ui.page_fluid(
         ui.tags.li("ANAGHA S SETLUR"),
     )
 )
+
+# --------------------
+# Helper Functions
+# --------------------
+def df_to_html_table(df, max_rows=5):
+    """Convert DataFrame to HTML table without using styling"""
+    if df.empty:
+        return ui.p("No data available")
+    
+    df_display = df.head(max_rows)
+    
+    # Create table headers
+    headers = [ui.tags.th(col) for col in df_display.columns]
+    header_row = ui.tags.tr(*headers)
+    
+    # Create table rows
+    rows = []
+    for _, row in df_display.iterrows():
+        cells = [ui.tags.td(str(val)) for val in row]
+        rows.append(ui.tags.tr(*cells))
+    
+    # Combine into table
+    table = ui.tags.table(
+        ui.tags.thead(header_row),
+        ui.tags.tbody(*rows),
+        class_="table table-striped table-sm"
+    )
+    
+    return table
 
 # --------------------
 # Data Preprocessing
@@ -207,20 +236,28 @@ def server(input, output, session):
         except Exception as e:
             status_msg.set(f"Error loading data: {str(e)}")
 
-    # Preview Tables
+    # Preview Tables using HTML
     @output
-    @render.table
+    @render.ui
     def train_preview():
-        if train_data.get():
-            return train_data.get()[0].head()
-        return pd.DataFrame()
+        try:
+            if train_data.get():
+                df = train_data.get()[0]
+                return df_to_html_table(df, max_rows=5)
+            return ui.p("No training data uploaded", class_="text-muted")
+        except Exception as e:
+            return ui.p(f"Error displaying data: {str(e)}", class_="text-danger")
 
     @output
-    @render.table  
+    @render.ui  
     def test_preview():
-        if test_data.get():
-            return test_data.get()[0].head()
-        return pd.DataFrame()
+        try:
+            if test_data.get():
+                df = test_data.get()[0]
+                return df_to_html_table(df, max_rows=5)
+            return ui.p("No testing data uploaded", class_="text-muted")
+        except Exception as e:
+            return ui.p(f"Error displaying data: {str(e)}", class_="text-danger")
 
     # Feature Distribution Plot
     @output
