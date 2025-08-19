@@ -1,4 +1,4 @@
-# app.py - Shiny for Python: Colon Cancer Classifier (Alternative with HTML tables)
+# app.py - Shiny for Python: Colon Cancer Classifier (Clean Version)
 
 from shiny import App, render, ui, reactive
 import pandas as pd
@@ -34,348 +34,295 @@ app_ui = ui.page_fluid(
     ui.navset_tab(
         ui.nav_panel(
             "📊 Upload & Analyze",
-                ui.layout_sidebar(
-                    ui.sidebar(
-                        ui.h5("📁 Data Upload", class_="text-primary"),
-                        ui.input_file("train_file", "Upload Training CSV", multiple=True, accept=".csv"),
-                        ui.input_file("test_file", "Upload Testing CSV", multiple=True, accept=".csv"),
-                        ui.br(),
-                        ui.h5("🔍 Visualization", class_="text-primary"),
-                        ui.input_select("feature_select", "Select feature to visualize", choices=[], selected=None),
-                        ui.br(),
-                        ui.h5("🚀 Model Training", class_="text-primary"),
-                        ui.input_action_button("run_models", "Run All Models", class_="btn-primary btn-lg"),
-                        ui.br(),
-                        ui.br(),
-                        ui.div(
-                            ui.h6("📈 Status", class_="text-info"),
-                            ui.output_text("status_text"),
-                            class_="alert alert-info"
-                        ),
-                        width="300px"
-                    ),
-                    # Main content area
+            ui.layout_sidebar(
+                ui.sidebar(
+                    ui.h5("📁 Data Upload", class_="text-primary"),
+                    ui.input_file("train_file", "Upload Training CSV", multiple=True, accept=".csv"),
+                    ui.input_file("test_file", "Upload Testing CSV", multiple=True, accept=".csv"),
+                    ui.br(),
+                    ui.h5("🔍 Visualization", class_="text-primary"),
+                    ui.input_select("feature_select", "Select feature to visualize", choices=[], selected=None),
+                    ui.br(),
+                    ui.h5("🚀 Model Training", class_="text-primary"),
+                    ui.input_action_button("run_models", "Run All Models", class_="btn-primary btn-lg"),
+                    ui.br(),
+                    ui.br(),
                     ui.div(
-                        ui.h4("📋 Training Data Preview"),
-                        ui.output_ui("train_preview"),
-                        ui.br(),
-                        ui.h4("📋 Testing Data Preview"), 
-                        ui.output_ui("test_preview"),
-                        ui.br(),
-                        ui.h4("📊 Feature Distribution"),
-                        ui.output_plot("feature_plot"),
-                        ui.br(),
-                        ui.h4("🎯 Model Performance Results"),
-                        ui.div(
-                            ui.div(
-                                ui.h5("🌳 Random Forest"),
-                                ui.output_text("rf_acc"),
-                                ui.output_plot("rf_cm"),
-                                class_="col-md-4"
-                            ),
-                            ui.div(
-                                ui.h5("⚡ XGBoost"),
-                                ui.output_text("xgb_acc"),
-                                ui.output_plot("xgb_cm"),
-                                class_="col-md-4"
-                            ),
-                            ui.div(
-                                ui.h5("🧠 Deep Neural Network"),
-                                ui.output_text("dnn_acc"),
-                                ui.output_plot("dnn_cm"),
-                                class_="col-md-4"
-                            ),
-                            class_="row"
-                        )
-                    )
-                )
-            ),
-            
-            ui.nav_panel(
-                "📖 How to Use",
+                        ui.h6("📈 Status", class_="text-info"),
+                        ui.output_text("status_text"),
+                        class_="alert alert-info"
+                    ),
+                    width="300px"
+                ),
+                # Main content area
                 ui.div(
-                    ui.h3("🚀 Getting Started Guide"),
-                    
-                    ui.div(
-                        ui.h4("📂 Step 1: Prepare Your Data"),
-                        ui.p("Your CSV files should contain genomic variant data with the following structure:"),
-                        
-                        ui.h5("📊 Sample Training Data Format:"),
-                        ui.tags.div(
-                            ui.tags.table(
-                                ui.tags.thead(
-                                    ui.tags.tr(
-                                        ui.tags.th("Chr"), ui.tags.th("Start"), ui.tags.th("End"), 
-                                        ui.tags.th("Func.refGene"), ui.tags.th("CADD"), ui.tags.th("SIFT_pred"),
-                                        ui.tags.th("Polyphen2_HDIV_pred"), ui.tags.th("AF")
-                                    )
-                                ),
-                                ui.tags.tbody(
-                                    ui.tags.tr(
-                                        ui.tags.td("chr1"), ui.tags.td("12345"), ui.tags.td("12346"),
-                                        ui.tags.td("exonic"), ui.tags.td("15.2"), ui.tags.td("T"),
-                                        ui.tags.td("B"), ui.tags.td("0.001")
-                                    ),
-                                    ui.tags.tr(
-                                        ui.tags.td("chr2"), ui.tags.td("67890"), ui.tags.td("67891"),
-                                        ui.tags.td("intronic"), ui.tags.td("8.7"), ui.tags.td("D"),
-                                        ui.tags.td("P"), ui.tags.td("0.005")
-                                    ),
-                                    ui.tags.tr(
-                                        ui.tags.td("chr3"), ui.tags.td("11111"), ui.tags.td("11112"),
-                                        ui.tags.td("UTR3"), ui.tags.td("12.1"), ui.tags.td("T"),
-                                        ui.tags.td("B"), ui.tags.td("0.002")
-                                    )
-                                ),
-                                class_="table table-striped table-sm"
-                            ),
-                            class_="table-responsive"
-                        ),
-                        
-                        ui.h5("📊 Sample Testing Data Format:"),
-                        ui.tags.div(
-                            ui.tags.table(
-                                ui.tags.thead(
-                                    ui.tags.tr(
-                                        ui.tags.th("Chr"), ui.tags.th("Start"), ui.tags.th("End"), 
-                                        ui.tags.th("Func.refGene"), ui.tags.th("CADD"), ui.tags.th("SIFT_pred"),
-                                        ui.tags.th("Polyphen2_HDIV_pred"), ui.tags.th("AF")
-                                    )
-                                ),
-                                ui.tags.tbody(
-                                    ui.tags.tr(
-                                        ui.tags.td("chr4"), ui.tags.td("22222"), ui.tags.td("22223"),
-                                        ui.tags.td("exonic"), ui.tags.td("18.5"), ui.tags.td("D"),
-                                        ui.tags.td("P"), ui.tags.td("0.003")
-                                    ),
-                                    ui.tags.tr(
-                                        ui.tags.td("chr5"), ui.tags.td("33333"), ui.tags.td("33334"),
-                                        ui.tags.td("splicing"), ui.tags.td("25.1"), ui.tags.td("D"),
-                                        ui.tags.td("D"), ui.tags.td("0.001")
-                                    )
-                                ),
-                                class_="table table-striped table-sm"
-                            ),
-                            class_="table-responsive"
-                        ),
-                        
-                        ui.div(
-                            ui.h5("📋 Required Columns:"),
-                            ui.tags.ul(
-                                ui.tags.li(ui.tags.strong("Func.refGene"), " (Target): Functional annotation (exonic, intronic, splicing, etc.)"),
-                                ui.tags.li(ui.tags.strong("Chr"), " (Optional): Chromosome identifier (chr1, chr2, etc.)"),
-                                ui.tags.li(ui.tags.strong("CADD, CADD_Phred"), " (Optional): Pathogenicity scores"),
-                                ui.tags.li(ui.tags.strong("SIFT_pred, Polyphen2_*_pred"), " (Optional): Prediction scores"),
-                                ui.tags.li(ui.tags.strong("AF, AF_popmax"), " (Optional): Allele frequencies"),
-                                ui.tags.li(ui.tags.strong("MutationTaster_*, MutationAssessor_*"), " (Optional): Additional scores")
-                            ),
-                            class_="alert alert-info"
-                        ),
-                        class_="mb-4"
-                    ),
-                    
-                    ui.div(
-                        ui.h4("⚙️ Step 2: Upload and Process"),
-                        ui.tags.ol(
-                            ui.tags.li("Upload your training CSV file(s) using the 'Upload Training CSV' button"),
-                            ui.tags.li("Upload your testing CSV file(s) using the 'Upload Testing CSV' button"),
-                            ui.tags.li("Preview your data in the 'Upload & Analyze' tab"),
-                            ui.tags.li("Select a feature to visualize its distribution"),
-                            ui.tags.li("Click 'Run All Models' to start the analysis")
-                        ),
-                        class_="mb-4"
-                    ),
-                    
-                    ui.div(
-                        ui.h4("📊 Step 3: Interpret Results"),
-                        ui.p("The app will generate:"),
-                        ui.tags.ul(
-                            ui.tags.li("Accuracy scores for each model"),
-                            ui.tags.li("Confusion matrices showing prediction performance"),
-                            ui.tags.li("Feature distribution plots for data exploration")
-                        ),
-                        class_="mb-4"
-                    ),
-                    
-                    class_="container-fluid"
-                )
-            ),
-            
-            ui.nav_panel(
-                "🤖 Models Info",
-                ui.div(
-                    ui.h3("🧬 Machine Learning Models for Colon Cancer Classification"),
-                    
+                    ui.h4("📋 Training Data Preview"),
+                    ui.output_ui("train_preview"),
+                    ui.br(),
+                    ui.h4("📋 Testing Data Preview"), 
+                    ui.output_ui("test_preview"),
+                    ui.br(),
+                    ui.h4("📊 Feature Distribution"),
+                    ui.output_plot("feature_plot"),
+                    ui.br(),
+                    ui.h4("🎯 Model Performance Results"),
                     ui.div(
                         ui.div(
-                            ui.div(
-                                ui.h4("🌳 Random Forest Classifier"),
-                                ui.p("An ensemble learning method that constructs multiple decision trees and merges them together to get more accurate and stable predictions."),
-                                ui.tags.strong("Key Features:"),
-                                ui.tags.ul(
-                                    ui.tags.li("Handles missing values well"),
-                                    ui.tags.li("Provides feature importance rankings"),
-                                    ui.tags.li("Reduces overfitting compared to single decision trees"),
-                                    ui.tags.li("Works well with genomic data")
-                                ),
-                                ui.tags.strong("Best for: "), "Understanding which genetic features are most important for classification",
-                                class_="card-body"
-                            ),
-                            class_="card mb-3"
+                            ui.h5("🌳 Random Forest"),
+                            ui.output_text("rf_acc"),
+                            ui.output_plot("rf_cm"),
+                            class_="col-md-4"
                         ),
-                        
                         ui.div(
-                            ui.div(
-                                ui.h4("⚡ XGBoost (Extreme Gradient Boosting)"),
-                                ui.p("A powerful gradient boosting framework that uses ensemble of weak learners (decision trees) to create a strong predictor."),
-                                ui.tags.strong("Key Features:"),
-                                ui.tags.ul(
-                                    ui.tags.li("High performance and speed"),
-                                    ui.tags.li("Handles missing values automatically"), 
-                                    ui.tags.li("Built-in regularization to prevent overfitting"),
-                                    ui.tags.li("Excellent for structured/tabular data")
-                                ),
-                                ui.tags.strong("Best for: "), "Achieving high accuracy on genomic variant classification tasks",
-                                class_="card-body"
-                            ),
-                            class_="card mb-3"
+                            ui.h5("⚡ XGBoost"),
+                            ui.output_text("xgb_acc"),
+                            ui.output_plot("xgb_cm"),
+                            class_="col-md-4"
                         ),
-                        
                         ui.div(
-                            ui.div(
-                                ui.h4("🧠 Deep Neural Network (DNN)"),
-                                ui.p("A multi-layer neural network that can learn complex non-linear patterns in genomic data through backpropagation."),
-                                ui.tags.strong("Architecture:"),
-                                ui.tags.ul(
-                                    ui.tags.li("Input Layer: Matches number of genomic features"),
-                                    ui.tags.li("Hidden Layer 1: 64 neurons with ReLU activation"),
-                                    ui.tags.li("Hidden Layer 2: 32 neurons with ReLU activation"),
-                                    ui.tags.li("Output Layer: Softmax for multi-class classification")
-                                ),
-                                ui.tags.strong("Best for: "), "Capturing complex interactions between genetic variants",
-                                class_="card-body"
-                            ),
-                            class_="card mb-3"
+                            ui.h5("🧠 Deep Neural Network"),
+                            ui.output_text("dnn_acc"),
+                            ui.output_plot("dnn_cm"),
+                            class_="col-md-4"
                         ),
                         class_="row"
-                    ),
+                    )
+                )
+            )
+        ),
+        
+        ui.nav_panel(
+            "📖 How to Use",
+            ui.div(
+                ui.h3("🚀 Getting Started Guide"),
+                
+                ui.div(
+                    ui.h4("📂 Step 1: Prepare Your Data"),
+                    ui.p("Your CSV files should contain genomic variant data with the following structure:"),
                     
-                    ui.div(
-                        ui.h4("🎯 Model Comparison & Selection"),
+                    ui.h5("📊 Sample Training Data Format:"),
+                    ui.tags.div(
                         ui.tags.table(
                             ui.tags.thead(
                                 ui.tags.tr(
-                                    ui.tags.th("Model"), ui.tags.th("Strengths"), ui.tags.th("Use Case"), ui.tags.th("Interpretability")
+                                    ui.tags.th("Chr"), ui.tags.th("Start"), ui.tags.th("End"), 
+                                    ui.tags.th("Func.refGene"), ui.tags.th("CADD"), ui.tags.th("SIFT_pred"),
+                                    ui.tags.th("Polyphen2_HDIV_pred"), ui.tags.th("AF")
                                 )
                             ),
                             ui.tags.tbody(
                                 ui.tags.tr(
-                                    ui.tags.td("Random Forest"), 
-                                    ui.tags.td("Feature importance, handles missing data"), 
-                                    ui.tags.td("Exploratory analysis"), 
-                                    ui.tags.td("High")
+                                    ui.tags.td("chr1"), ui.tags.td("12345"), ui.tags.td("12346"),
+                                    ui.tags.td("exonic"), ui.tags.td("15.2"), ui.tags.td("T"),
+                                    ui.tags.td("B"), ui.tags.td("0.001")
                                 ),
                                 ui.tags.tr(
-                                    ui.tags.td("XGBoost"), 
-                                    ui.tags.td("High accuracy, fast training"), 
-                                    ui.tags.td("Production deployment"), 
-                                    ui.tags.td("Medium")
+                                    ui.tags.td("chr2"), ui.tags.td("67890"), ui.tags.td("67891"),
+                                    ui.tags.td("intronic"), ui.tags.td("8.7"), ui.tags.td("D"),
+                                    ui.tags.td("P"), ui.tags.td("0.005")
                                 ),
                                 ui.tags.tr(
-                                    ui.tags.td("Deep Neural Network"), 
-                                    ui.tags.td("Complex pattern recognition"), 
-                                    ui.tags.td("Large datasets"), 
-                                    ui.tags.td("Low")
+                                    ui.tags.td("chr3"), ui.tags.td("11111"), ui.tags.td("11112"),
+                                    ui.tags.td("UTR3"), ui.tags.td("12.1"), ui.tags.td("T"),
+                                    ui.tags.td("B"), ui.tags.td("0.002")
                                 )
                             ),
-                            class_="table table-striped"
+                            class_="table table-striped table-sm"
                         ),
-                        class_="mt-4"
-                    ),
-                    
-                    class_="container-fluid"
-                )
-            ),
-            
-            ui.nav_panel(
-                "ℹ️ About",
-                ui.div(
-                    ui.h3("🧬 Colon Cancer AI/ML Research Platform"),
-                    
-                    ui.div(
-                        ui.h4("🎯 Research Objective"),
-                        ui.p("This platform was developed to advance colon cancer research by providing machine learning tools for analyzing genomic variant data. It helps researchers classify genetic variants and understand their potential impact on colon cancer development."),
-                        class_="mb-4"
+                        class_="table-responsive"
                     ),
                     
                     ui.div(
-                        ui.h4("📊 Data Science Approach"),
-                        ui.p("Our approach combines traditional machine learning with deep learning to provide comprehensive analysis:"),
+                        ui.h5("📋 Required Columns:"),
                         ui.tags.ul(
-                            ui.tags.li("📈 ", ui.tags.strong("Preprocessing:"), " Automated data cleaning, encoding, and normalization"),
-                            ui.tags.li("🔍 ", ui.tags.strong("Feature Engineering:"), " Chromosome mapping and categorical encoding"),
-                            ui.tags.li("🤖 ", ui.tags.strong("Multi-Model Ensemble:"), " Three complementary algorithms for robust predictions"),
-                            ui.tags.li("📊 ", ui.tags.strong("Visualization:"), " Interactive plots and confusion matrices for result interpretation")
+                            ui.tags.li(ui.tags.strong("Func.refGene"), " (Target): Functional annotation (exonic, intronic, splicing, etc.)"),
+                            ui.tags.li(ui.tags.strong("Chr"), " (Optional): Chromosome identifier (chr1, chr2, etc.)"),
+                            ui.tags.li(ui.tags.strong("CADD, CADD_Phred"), " (Optional): Pathogenicity scores"),
+                            ui.tags.li(ui.tags.strong("SIFT_pred, Polyphen2_*_pred"), " (Optional): Prediction scores"),
+                            ui.tags.li(ui.tags.strong("AF, AF_popmax"), " (Optional): Allele frequencies")
                         ),
-                        class_="mb-4"
+                        class_="alert alert-info"
+                    ),
+                    class_="mb-4"
+                ),
+                
+                ui.div(
+                    ui.h4("⚙️ Step 2: Upload and Process"),
+                    ui.tags.ol(
+                        ui.tags.li("Upload your training CSV file(s)"),
+                        ui.tags.li("Upload your testing CSV file(s)"),
+                        ui.tags.li("Preview your data"),
+                        ui.tags.li("Select a feature to visualize"),
+                        ui.tags.li("Click 'Run All Models' to start analysis")
+                    ),
+                    class_="mb-4"
+                ),
+                
+                ui.div(
+                    ui.h4("📊 Step 3: Interpret Results"),
+                    ui.p("The app will generate:"),
+                    ui.tags.ul(
+                        ui.tags.li("Accuracy scores for each model"),
+                        ui.tags.li("Confusion matrices showing prediction performance"),
+                        ui.tags.li("Feature distribution plots for data exploration")
+                    ),
+                    class_="mb-4"
+                ),
+                
+                class_="container-fluid"
+            )
+        ),
+        
+        ui.nav_panel(
+            "🤖 Models Info",
+            ui.div(
+                ui.h3("🧬 Machine Learning Models for Colon Cancer Classification"),
+                
+                ui.div(
+                    ui.div(
+                        ui.div(
+                            ui.h4("🌳 Random Forest Classifier"),
+                            ui.p("An ensemble learning method that constructs multiple decision trees and merges them together to get more accurate and stable predictions."),
+                            ui.tags.strong("Key Features:"),
+                            ui.tags.ul(
+                                ui.tags.li("Handles missing values well"),
+                                ui.tags.li("Provides feature importance rankings"),
+                                ui.tags.li("Reduces overfitting compared to single decision trees"),
+                                ui.tags.li("Works well with genomic data")
+                            ),
+                            ui.tags.strong("Best for: "), "Understanding which genetic features are most important for classification",
+                            class_="card-body"
+                        ),
+                        class_="card mb-3"
                     ),
                     
                     ui.div(
-                        ui.h4("🔬 For Researchers"),
                         ui.div(
-                            ui.h5("📚 Publication & Citation"),
-                            ui.p("If you use this tool in your research, please cite our work:"),
-                            ui.tags.blockquote(
-                                "Colon Cancer Classification using Machine Learning and Deep Learning Approaches on Genomic Variant Data",
-                                class_="blockquote text-muted"
+                            ui.h4("⚡ XGBoost (Extreme Gradient Boosting)"),
+                            ui.p("A powerful gradient boosting framework that uses ensemble of weak learners (decision trees) to create a strong predictor."),
+                            ui.tags.strong("Key Features:"),
+                            ui.tags.ul(
+                                ui.tags.li("High performance and speed"),
+                                ui.tags.li("Handles missing values automatically"), 
+                                ui.tags.li("Built-in regularization to prevent overfitting"),
+                                ui.tags.li("Excellent for structured/tabular data")
                             ),
-                            ui.a("📖 GitHub Repository", href="https://github.com/CSK005/Colon-Cancer-AI-ML-model", 
-                                 target="_blank", class_="btn btn-outline-primary"),
+                            ui.tags.strong("Best for: "), "Achieving high accuracy on genomic variant classification tasks",
+                            class_="card-body"
                         ),
-                        class_="mb-4"
+                        class_="card mb-3"
                     ),
                     
                     ui.div(
-                        ui.h4("👥 Research Team"),
                         ui.div(
-                            ui.div(
-                                ui.h5("👨‍💻 CHANDRASHEKAR K"),
-                                ui.p("Lead Developer & Data Scientist", class_="text-muted"),
-                                class_="col-md-4"
+                            ui.h4("🧠 Deep Neural Network (DNN)"),
+                            ui.p("A multi-layer neural network that can learn complex non-linear patterns in genomic data through backpropagation."),
+                            ui.tags.strong("Architecture:"),
+                            ui.tags.ul(
+                                ui.tags.li("Input Layer: Matches number of genomic features"),
+                                ui.tags.li("Hidden Layer 1: 64 neurons with ReLU activation"),
+                                ui.tags.li("Hidden Layer 2: 32 neurons with ReLU activation"),
+                                ui.tags.li("Output Layer: Softmax for multi-class classification")
                             ),
-                            ui.div(
-                                ui.h5("👩‍🔬 Dr. VIDYA NIRANJAN"),
-                                ui.p("Principal Investigator & Research Supervisor", class_="text-muted"),
-                                class_="col-md-4"
-                            ),
-                            ui.div(
-                                ui.h5("👩‍💻 ANAGHA S SETLUR"),
-                                ui.p("Research Collaborator", class_="text-muted"),
-                                class_="col-md-4"
-                            ),
-                            class_="row"
+                            ui.tags.strong("Best for: "), "Capturing complex interactions between genetic variants",
+                            class_="card-body"
                         ),
-                        class_="mb-4"
+                        class_="card mb-3"
+                    )
+                ),
+                
+                ui.div(
+                    ui.h4("🎯 Model Comparison"),
+                    ui.tags.table(
+                        ui.tags.thead(
+                            ui.tags.tr(
+                                ui.tags.th("Model"), ui.tags.th("Strengths"), ui.tags.th("Use Case")
+                            )
+                        ),
+                        ui.tags.tbody(
+                            ui.tags.tr(
+                                ui.tags.td("Random Forest"), 
+                                ui.tags.td("Feature importance, handles missing data"), 
+                                ui.tags.td("Exploratory analysis")
+                            ),
+                            ui.tags.tr(
+                                ui.tags.td("XGBoost"), 
+                                ui.tags.td("High accuracy, fast training"), 
+                                ui.tags.td("Production deployment")
+                            ),
+                            ui.tags.tr(
+                                ui.tags.td("Deep Neural Network"), 
+                                ui.tags.td("Complex pattern recognition"), 
+                                ui.tags.td("Large datasets")
+                            )
+                        ),
+                        class_="table table-striped"
                     ),
-                    
+                    class_="mt-4"
+                ),
+                
+                class_="container-fluid"
+            )
+        ),
+        
+        ui.nav_panel(
+            "ℹ️ About",
+            ui.div(
+                ui.h3("🧬 Colon Cancer AI/ML Research Platform"),
+                
+                ui.div(
+                    ui.h4("🎯 Research Objective"),
+                    ui.p("This platform was developed to advance colon cancer research by providing machine learning tools for analyzing genomic variant data. It helps researchers classify genetic variants and understand their potential impact on colon cancer development."),
+                    class_="mb-4"
+                ),
+                
+                ui.div(
+                    ui.h4("📊 Data Science Approach"),
+                    ui.p("Our approach combines traditional machine learning with deep learning to provide comprehensive analysis:"),
+                    ui.tags.ul(
+                        ui.tags.li("📈 ", ui.tags.strong("Preprocessing:"), " Automated data cleaning, encoding, and normalization"),
+                        ui.tags.li("🔍 ", ui.tags.strong("Feature Engineering:"), " Chromosome mapping and categorical encoding"),
+                        ui.tags.li("🤖 ", ui.tags.strong("Multi-Model Ensemble:"), " Three complementary algorithms for robust predictions"),
+                        ui.tags.li("📊 ", ui.tags.strong("Visualization:"), " Interactive plots and confusion matrices for result interpretation")
+                    ),
+                    class_="mb-4"
+                ),
+                
+                ui.div(
+                    ui.h4("👥 Research Team"),
                     ui.div(
-                        ui.h4("📧 Contact & Support"),
-                        ui.p("For research collaborations, technical support, or questions about the methodology, please reach out through our GitHub repository or institutional contacts."),
                         ui.div(
-                            ui.a("🐛 Report Issues", href="https://github.com/CSK005/Colon-Cancer-AI-ML-model/issues", 
-                                 target="_blank", class_="btn btn-outline-secondary me-2"),
-                            ui.a("💡 Feature Requests", href="https://github.com/CSK005/Colon-Cancer-AI-ML-model/discussions", 
-                                 target="_blank", class_="btn btn-outline-info"),
+                            ui.h5("👨‍💻 CHANDRASHEKAR K"),
+                            ui.p("Lead Developer & Data Scientist", class_="text-muted"),
+                            class_="col-md-4"
                         ),
-                        class_="alert alert-light"
+                        ui.div(
+                            ui.h5("👩‍🔬 Dr. VIDYA NIRANJAN"),
+                            ui.p("Principal Investigator & Research Supervisor", class_="text-muted"),
+                            class_="col-md-4"
+                        ),
+                        ui.div(
+                            ui.h5("👩‍💻 ANAGHA S SETLUR"),
+                            ui.p("Research Collaborator", class_="text-muted"),
+                            class_="col-md-4"
+                        ),
+                        class_="row"
                     ),
-                    
-                    class_="container-fluid"
-                )
-            ),
-            
-            id="main_tabs"
-        )
+                    class_="mb-4"
+                ),
+                
+                ui.div(
+                    ui.h4("📖 GitHub Repository"),
+                    ui.a("🔗 View Source Code", href="https://github.com/CSK005/Colon-Cancer-AI-ML-model", 
+                         target="_blank", class_="btn btn-outline-primary"),
+                    class_="mb-4"
+                ),
+                
+                class_="container-fluid"
+            )
+        ),
+        
+        id="main_tabs"
     )
 )
 
@@ -670,7 +617,7 @@ def server(input, output, session):
                 def rf_cm():
                     try:
                         cm = confusion_matrix(y_test, y_pred_rf)
-                        fig, ax = plt.subplots(figsize=(8, 6))
+                        fig, ax = plt.subplots(figsize=(6, 5))
                         sns.heatmap(cm, annot=True, fmt='d', cmap="Blues", ax=ax)
                         ax.set_title("Random Forest Confusion Matrix")
                         plt.tight_layout()
@@ -701,7 +648,7 @@ def server(input, output, session):
                 def xgb_cm():
                     try:
                         cm = confusion_matrix(y_test, y_pred_xgb)
-                        fig, ax = plt.subplots(figsize=(8, 6))
+                        fig, ax = plt.subplots(figsize=(6, 5))
                         sns.heatmap(cm, annot=True, fmt='d', cmap="Greens", ax=ax)
                         ax.set_title("XGBoost Confusion Matrix")
                         plt.tight_layout()
@@ -751,7 +698,7 @@ def server(input, output, session):
                             y_pred_dnn = (y_pred_prob > 0.5).astype(int).flatten()
                             
                         cm = confusion_matrix(y_test, y_pred_dnn)
-                        fig, ax = plt.subplots(figsize=(8, 6))
+                        fig, ax = plt.subplots(figsize=(6, 5))
                         sns.heatmap(cm, annot=True, fmt='d', cmap="Oranges", ax=ax)
                         ax.set_title("Deep Neural Network Confusion Matrix")
                         plt.tight_layout()
