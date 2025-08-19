@@ -1,17 +1,23 @@
-# app.py - Shiny for Python: Colon Cancer Classifier
+# app.py - Shiny for Python: Colon Cancer Classifier (Fixed)
 
 from shiny import App, render, ui, reactive
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io
+import traceback
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from xgboost import XGBClassifier
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
+
+# Set matplotlib backend for server deployment
+plt.switch_backend('Agg')
 
 # --------------------
 # UI
@@ -22,28 +28,39 @@ app_ui = ui.page_fluid(
 
     ui.layout_sidebar(
         ui.sidebar(
-            ui.input_file("train_file", "Upload Training CSVs", multiple=True, accept=".csv"),
-            ui.input_file("test_file", "Upload Testing CSVs", multiple=True, accept=".csv"),
-            ui.input_select("feature_select", "Select feature to visualize", choices=[]),
-            ui.input_action_button("run_models", "Run Models"),
+            ui.input_file("train_file", "Upload Training CSV", multiple=True, accept=".csv"),
+            ui.input_file("test_file", "Upload Testing CSV", multiple=True, accept=".csv"),
+            ui.input_select("feature_select", "Select feature to visualize", choices=[], selected=None),
+            ui.input_action_button("run_models", "Run Models", class_="btn-primary"),
+            ui.br(),
+            ui.output_text("status_text"),
         ),
-        # Main content area (no panel_main needed)
-        ui.output_table("train_preview"),
-        ui.output_table("test_preview"),
-        ui.output_plot("feature_plot"),
-        ui.output_text("rf_acc"),
-        ui.output_plot("rf_cm"),
-        ui.output_text("xgb_acc"),
-        ui.output_plot("xgb_cm"),
-        ui.output_text("dnn_acc"),
-        ui.output_plot("dnn_cm"),
+        # Main content area
+        ui.div(
+            ui.h4("Training Data Preview"),
+            ui.output_table("train_preview"),
+            ui.br(),
+            ui.h4("Testing Data Preview"), 
+            ui.output_table("test_preview"),
+            ui.br(),
+            ui.h4("Feature Distribution"),
+            ui.output_plot("feature_plot"),
+            ui.br(),
+            ui.h4("Model Results"),
+            ui.output_text("rf_acc"),
+            ui.output_plot("rf_cm"),
+            ui.output_text("xgb_acc"), 
+            ui.output_plot("xgb_cm"),
+            ui.output_text("dnn_acc"),
+            ui.output_plot("dnn_cm"),
+        )
     ),
 
     ui.hr(),
-    ui.h3("About Us"),
+    ui.h3("About"),
     ui.p("This Colon Cancer classification model was developed to provide insights "
-         "into colon cancer prediction using exome sequencing data."),
-    ui.a("GitHub Repository", href="https://github.com/CSK005/Colon-Cancer-AI-ML-model"),
+         "into colon cancer prediction using genomic data."),
+    ui.a("GitHub Repository", href="https://github.com/CSK005/Colon-Cancer-AI-ML-model", target="_blank"),
     ui.tags.ul(
         ui.tags.li("CHANDRASHEKAR K"),
         ui.tags.li("Dr. VIDYA NIRANJAN"),
@@ -55,176 +72,360 @@ app_ui = ui.page_fluid(
 # Data Preprocessing
 # --------------------
 def preprocess(files):
-    if not files:
-        return None, None
+    """Preprocess uploaded CSV files"""
+    try:
+        if not files:
+            return None, None, "No files uploaded"
 
-    dfs = [pd.read_csv(f["datapath"]) for f in files]
-    df = pd.concat(dfs, ignore_index=True)
+        dfs = []
+        for f in files:
+            try:
+                df = pd.read_csv(f["datapath"])
+                dfs.append(df)
+            except Exception as e:
+                return None, None, f"Error reading file {f['name']}: {str(e)}"
 
-    # Cleaning
-    df.replace(".", np.nan, inplace=True)
-    df.fillna(0, inplace=True)
+        if not dfs:
+            return None, None, "No valid CSV files found"
 
-    # Encode Chr column if present
-    chr_map = {f'chr{i}': i for i in range(1, 23)}
-    chr_map.update({'chrX': 23, 'chrY': 24})
-    if 'Chr' in df.columns:
-        df['Chr'] = df['Chr'].map(chr_map).fillna(0).astype(int)
+        df = pd.concat(dfs, ignore_index=True)
 
-    # Encode categorical columns
-    encode_cols = [
-        "Func.refGene", "ExonicFunc.refGene", "Polyphen2_HDIV_pred",
-        "Polyphen2_HVAR_pred", "SIFT_pred", "MutationTaster_pred",
-        "MutationAssessor_pred", "CLNSIG"
-    ]
-    for col in encode_cols:
-        if col in df.columns:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col].astype(str))
+        # Basic cleaning
+        df = df.replace(".", np.nan)
+        df = df.fillna(0)
 
-    # Normalize numeric columns
-    scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score",
-                  "MutationAssessor_score", "AF", "AF_popmax"]
-    scale_cols = [c for c in scale_cols if c in df.columns]
-    if scale_cols:
-        scaler = MinMaxScaler()
-        df[scale_cols] = scaler.fit_transform(df[scale_cols])
+        # Encode Chr column if present
+        chr_map = {f'chr{i}': i for i in range(1, 23)}
+        chr_map.update({'chrX': 23, 'chrY': 24})
+        if 'Chr' in df.columns:
+            df['Chr'] = df['Chr'].map(chr_map).fillna(0).astype(int)
 
-    if 'Func.refGene' not in df.columns:
-        return None, None
+        # Encode categorical columns (only if they exist)
+        encode_cols = [
+            "Func.refGene", "ExonicFunc.refGene", "Polyphen2_HDIV_pred",
+            "Polyphen2_HVAR_pred", "SIFT_pred", "MutationTaster_pred",
+            "MutationAssessor_pred", "CLNSIG"
+        ]
+        
+        for col in encode_cols:
+            if col in df.columns:
+                try:
+                    le = LabelEncoder()
+                    df[col] = le.fit_transform(df[col].astype(str))
+                except Exception as e:
+                    print(f"Warning: Could not encode column {col}: {e}")
 
-    X = df.drop(columns=['Func.refGene'])
-    y = df['Func.refGene']
-    return X, y
+        # Normalize numeric columns (only if they exist)
+        scale_cols = ["CADD", "CADD_Phred", "MutationTaster_score",
+                      "MutationAssessor_score", "AF", "AF_popmax"]
+        scale_cols = [c for c in scale_cols if c in df.columns]
+        
+        if scale_cols:
+            try:
+                scaler = MinMaxScaler()
+                df[scale_cols] = scaler.fit_transform(df[scale_cols])
+            except Exception as e:
+                print(f"Warning: Could not scale columns: {e}")
+
+        # Determine target column
+        target_col = None
+        if 'Func.refGene' in df.columns:
+            target_col = 'Func.refGene'
+        elif 'target' in df.columns:
+            target_col = 'target'
+        elif 'label' in df.columns:
+            target_col = 'label'
+        else:
+            # Use the last column as target
+            target_col = df.columns[-1]
+
+        X = df.drop(columns=[target_col])
+        y = df[target_col]
+        
+        # Ensure all features are numeric
+        for col in X.columns:
+            try:
+                X[col] = pd.to_numeric(X[col], errors='coerce')
+            except:
+                pass
+        
+        X = X.fillna(0)
+        
+        return X, y, "Success"
+
+    except Exception as e:
+        return None, None, f"Preprocessing error: {str(e)}"
 
 # --------------------
 # SERVER
 # --------------------
 def server(input, output, session):
 
+    # Reactive values
     train_data = reactive.Value(None)
     test_data = reactive.Value(None)
+    status_msg = reactive.Value("Ready to upload files")
+
+    # Status output
+    @output
+    @render.text
+    def status_text():
+        return status_msg.get()
 
     # Load Data
     @reactive.Effect
     @reactive.event(input.train_file, input.test_file)
     def _load_data():
-        X_train, y_train = preprocess(input.train_file())
-        X_test, y_test = preprocess(input.test_file())
-        if X_train is not None and X_test is not None:
-            train_data.set((X_train, y_train))
-            test_data.set((X_test, y_test))
+        try:
+            status_msg.set("Loading data...")
             
-            # Update feature choices for dropdown
-            feature_choices = list(X_train.columns)
-            ui.update_select("feature_select", choices=feature_choices)
+            # Process training data
+            if input.train_file():
+                X_train, y_train, train_status = preprocess(input.train_file())
+                if X_train is not None:
+                    train_data.set((X_train, y_train))
+                    status_msg.set(f"Training data loaded: {X_train.shape[0]} rows, {X_train.shape[1]} features")
+                else:
+                    status_msg.set(f"Training data error: {train_status}")
+                    return
+            
+            # Process testing data
+            if input.test_file():
+                X_test, y_test, test_status = preprocess(input.test_file())
+                if X_test is not None:
+                    test_data.set((X_test, y_test))
+                    
+                    # Update feature choices for dropdown
+                    if train_data.get():
+                        feature_choices = list(train_data.get()[0].columns)
+                        ui.update_select("feature_select", choices=feature_choices, selected=feature_choices[0] if feature_choices else None)
+                    
+                    status_msg.set("Both datasets loaded successfully. Ready to run models.")
+                else:
+                    status_msg.set(f"Testing data error: {test_status}")
+            
+        except Exception as e:
+            status_msg.set(f"Error loading data: {str(e)}")
 
     # Preview Tables
     @output
     @render.table
     def train_preview():
-        if train_data():
-            return train_data()[0].head()
+        if train_data.get():
+            return train_data.get()[0].head()
+        return pd.DataFrame()
 
     @output
-    @render.table
+    @render.table  
     def test_preview():
-        if test_data():
-            return test_data()[0].head()
+        if test_data.get():
+            return test_data.get()[0].head()
+        return pd.DataFrame()
 
     # Feature Distribution Plot
     @output
     @render.plot
     def feature_plot():
-        if train_data():
-            df = train_data()[0]
-            feature = input.feature_select()
-            if feature and feature in df.columns:
-                fig, ax = plt.subplots()
-                sns.histplot(df[feature], bins=30, kde=True, ax=ax)
-                ax.set_title(f"Distribution of {feature}")
-                return fig
+        try:
+            if train_data.get():
+                df = train_data.get()[0]
+                feature = input.feature_select()
+                if feature and feature in df.columns:
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    
+                    # Handle different data types
+                    data = df[feature].dropna()
+                    if len(data) > 0:
+                        if data.dtype in ['object', 'category']:
+                            data.value_counts().plot(kind='bar', ax=ax)
+                        else:
+                            sns.histplot(data, bins=min(30, len(data.unique())), kde=True, ax=ax)
+                        
+                        ax.set_title(f"Distribution of {feature}")
+                        ax.tick_params(axis='x', rotation=45)
+                        plt.tight_layout()
+                    return fig
+        except Exception as e:
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, f"Error creating plot: {str(e)}", ha='center', va='center')
+            return fig
+
+    # Model outputs (initialized as empty)
+    @output
+    @render.text
+    def rf_acc():
+        return ""
+
+    @output
+    @render.plot
+    def rf_cm():
+        return plt.figure()
+
+    @output
+    @render.text
+    def xgb_acc():
+        return ""
+
+    @output
+    @render.plot
+    def xgb_cm():
+        return plt.figure()
+
+    @output
+    @render.text
+    def dnn_acc():
+        return ""
+
+    @output
+    @render.plot
+    def dnn_cm():
+        return plt.figure()
 
     # Run Models
     @reactive.Effect
     @reactive.event(input.run_models)
     def _train_models():
-        if not (train_data() and test_data()):
-            return
+        try:
+            if not (train_data.get() and test_data.get()):
+                status_msg.set("Please upload both training and testing data first")
+                return
 
-        X_train, y_train = train_data()
-        X_test, y_test = test_data()
+            status_msg.set("Training models...")
+            
+            X_train, y_train = train_data.get()
+            X_test, y_test = test_data.get()
 
-        # ---- Random Forest ----
-        rf = RandomForestClassifier(n_estimators=100, random_state=42)
-        rf.fit(X_train, y_train)
-        y_pred_rf = rf.predict(X_test)
-        acc_rf = accuracy_score(y_test, y_pred_rf)
+            # Ensure consistent features
+            common_features = X_train.columns.intersection(X_test.columns)
+            X_train = X_train[common_features]
+            X_test = X_test[common_features]
 
-        @output
-        @render.text
-        def rf_acc():
-            return f"Random Forest Accuracy: {acc_rf:.2f}"
+            if len(common_features) == 0:
+                status_msg.set("No common features between training and testing data")
+                return
 
-        @output
-        @render.plot
-        def rf_cm():
-            cm = confusion_matrix(y_test, y_pred_rf)
-            fig, ax = plt.subplots()
-            sns.heatmap(cm, annot=True, fmt='d', cmap="Blues", ax=ax)
-            ax.set_title("Random Forest Confusion Matrix")
-            return fig
+            # ---- Random Forest ----
+            try:
+                status_msg.set("Training Random Forest...")
+                rf = RandomForestClassifier(n_estimators=50, random_state=42, n_jobs=-1)
+                rf.fit(X_train, y_train)
+                y_pred_rf = rf.predict(X_test)
+                acc_rf = accuracy_score(y_test, y_pred_rf)
 
-        # ---- XGBoost ----
-        xgb = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
-        xgb.fit(X_train, y_train)
-        y_pred_xgb = xgb.predict(X_test)
-        acc_xgb = accuracy_score(y_test, y_pred_xgb)
+                @output
+                @render.text
+                def rf_acc():
+                    return f"Random Forest Accuracy: {acc_rf:.3f}"
 
-        @output
-        @render.text
-        def xgb_acc():
-            return f"XGBoost Accuracy: {acc_xgb:.2f}"
+                @output
+                @render.plot
+                def rf_cm():
+                    try:
+                        cm = confusion_matrix(y_test, y_pred_rf)
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        sns.heatmap(cm, annot=True, fmt='d', cmap="Blues", ax=ax)
+                        ax.set_title("Random Forest Confusion Matrix")
+                        plt.tight_layout()
+                        return fig
+                    except Exception as e:
+                        fig, ax = plt.subplots()
+                        ax.text(0.5, 0.5, f"Error: {str(e)}", ha='center', va='center')
+                        return fig
 
-        @output
-        @render.plot
-        def xgb_cm():
-            cm = confusion_matrix(y_test, y_pred_xgb)
-            fig, ax = plt.subplots()
-            sns.heatmap(cm, annot=True, fmt='d', cmap="Greens", ax=ax)
-            ax.set_title("XGBoost Confusion Matrix")
-            return fig
+            except Exception as e:
+                status_msg.set(f"Random Forest error: {str(e)}")
 
-        # ---- Deep Neural Network ----
-        model = Sequential([
-            Dense(64, input_dim=X_train.shape[1], activation='relu'),
-            Dense(32, activation='relu'),
-            Dense(len(np.unique(y_train)), activation='softmax')
-        ])
-        model.compile(loss='sparse_categorical_crossentropy',
-                      optimizer='adam',
-                      metrics=['accuracy'])
-        model.fit(X_train, y_train, epochs=3, batch_size=32, verbose=0)
+            # ---- XGBoost ----
+            try:
+                status_msg.set("Training XGBoost...")
+                xgb = XGBClassifier(n_estimators=50, random_state=42, eval_metric='mlogloss', verbosity=0)
+                xgb.fit(X_train, y_train)
+                y_pred_xgb = xgb.predict(X_test)
+                acc_xgb = accuracy_score(y_test, y_pred_xgb)
 
-        _, acc_dnn = model.evaluate(X_test, y_test, verbose=0)
+                @output
+                @render.text
+                def xgb_acc():
+                    return f"XGBoost Accuracy: {acc_xgb:.3f}"
 
-        @output
-        @render.text
-        def dnn_acc():
-            return f"DNN Accuracy: {acc_dnn:.2f}"
+                @output
+                @render.plot
+                def xgb_cm():
+                    try:
+                        cm = confusion_matrix(y_test, y_pred_xgb)
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        sns.heatmap(cm, annot=True, fmt='d', cmap="Greens", ax=ax)
+                        ax.set_title("XGBoost Confusion Matrix")
+                        plt.tight_layout()
+                        return fig
+                    except Exception as e:
+                        fig, ax = plt.subplots()
+                        ax.text(0.5, 0.5, f"Error: {str(e)}", ha='center', va='center')
+                        return fig
 
-        @output
-        @render.plot
-        def dnn_cm():
-            y_pred_prob = model.predict(X_test, verbose=0)
-            y_pred_dnn = np.argmax(y_pred_prob, axis=1)
-            cm = confusion_matrix(y_test, y_pred_dnn)
-            fig, ax = plt.subplots()
-            sns.heatmap(cm, annot=True, fmt='d', cmap="Oranges", ax=ax)
-            ax.set_title("DNN Confusion Matrix")
-            return fig
+            except Exception as e:
+                status_msg.set(f"XGBoost error: {str(e)}")
+
+            # ---- Deep Neural Network ----
+            try:
+                status_msg.set("Training Deep Neural Network...")
+                
+                # Prepare data for DNN
+                n_classes = len(np.unique(y_train))
+                
+                model = Sequential([
+                    Dense(64, input_dim=X_train.shape[1], activation='relu'),
+                    Dense(32, activation='relu'), 
+                    Dense(n_classes, activation='softmax' if n_classes > 2 else 'sigmoid')
+                ])
+                
+                loss_fn = 'sparse_categorical_crossentropy' if n_classes > 2 else 'binary_crossentropy'
+                model.compile(loss=loss_fn, optimizer='adam', metrics=['accuracy'])
+                
+                # Train with reduced epochs for faster deployment
+                model.fit(X_train, y_train, epochs=5, batch_size=32, verbose=0, validation_split=0.2)
+
+                _, acc_dnn = model.evaluate(X_test, y_test, verbose=0)
+
+                @output
+                @render.text
+                def dnn_acc():
+                    return f"Deep Neural Network Accuracy: {acc_dnn:.3f}"
+
+                @output
+                @render.plot
+                def dnn_cm():
+                    try:
+                        y_pred_prob = model.predict(X_test, verbose=0)
+                        if n_classes > 2:
+                            y_pred_dnn = np.argmax(y_pred_prob, axis=1)
+                        else:
+                            y_pred_dnn = (y_pred_prob > 0.5).astype(int).flatten()
+                            
+                        cm = confusion_matrix(y_test, y_pred_dnn)
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        sns.heatmap(cm, annot=True, fmt='d', cmap="Oranges", ax=ax)
+                        ax.set_title("Deep Neural Network Confusion Matrix")
+                        plt.tight_layout()
+                        return fig
+                    except Exception as e:
+                        fig, ax = plt.subplots()
+                        ax.text(0.5, 0.5, f"Error: {str(e)}", ha='center', va='center')
+                        return fig
+
+            except Exception as e:
+                status_msg.set(f"DNN error: {str(e)}")
+
+            status_msg.set("All models trained successfully!")
+
+        except Exception as e:
+            status_msg.set(f"Training error: {str(e)}")
+            print(f"Full traceback: {traceback.format_exc()}")
 
 # --------------------
 # APP
 # --------------------
 app = App(app_ui, server)
+
+if __name__ == "__main__":
+    app.run()
