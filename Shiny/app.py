@@ -30,11 +30,10 @@ app_ui = ui.page_fluid(
         class_="mb-4"
     ),
     
-    # Information Section
-    ui.nav_panel(
-        ui.navset_tab(
-            ui.nav_panel(
-                "📊 Upload & Analyze",
+    # Navigation Section
+    ui.navset_tab(
+        ui.nav_panel(
+            "📊 Upload & Analyze",
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.h5("📁 Data Upload", class_="text-primary"),
