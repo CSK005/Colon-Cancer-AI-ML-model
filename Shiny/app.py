@@ -293,7 +293,7 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.div(
                             ui.h5("👨‍💻 CHANDRASHEKAR K"),
-                            ui.p("Lead Developer & Data Scientist", class_="text-muted"),
+                            ui.p("Research Scholar", class_="text-muted"),
                             class_="col-md-4"
                         ),
                         ui.div(
@@ -303,7 +303,7 @@ app_ui = ui.page_fluid(
                         ),
                         ui.div(
                             ui.h5("👩‍💻 ANAGHA S SETLUR"),
-                            ui.p("Research Collaborator", class_="text-muted"),
+                            ui.p("Graduate", class_="text-muted"),
                             class_="col-md-4"
                         ),
                         class_="row"
