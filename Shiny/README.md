@@ -149,13 +149,13 @@ Performance metrics: Standard evaluation protocols with statistical significance
 Data integrity: Robust preprocessing with quality control measures
 
 👥 Research Team
-Lead Developer & Data Scientist
+Research Scholar
 Chandrashekar K
 Department of Biotechnology, RV College of Engineering, Bengaluru, India
 Principal Investigator & Research Supervisor
 Dr. Vidya Niranjan
 Department of Biotechnology, RV College of Engineering, Bengaluru, India
-Research Collaborator
+Graduate
 Anagha S Setlur
 Department of Biotechnology, RV College of Engineering, Bengaluru, India
 🔗 Links and Resources
